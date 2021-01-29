@@ -1,35 +1,35 @@
 define([
-    'core/js/adapt',
-    'core/js/views/menuView'
-], function(Adapt, MenuView) {
+    "core/js/views/menuView",
+    "./adapt-tileMenuItemView",
+    "core/js/adapt",
+], function(MenuView, TileMenuItemView, Adapt) {
 
-    var BoxMenuView = MenuView.extend({
+    var TileMenuView = MenuView.extend({
+
+        events: {
+            'mousemove .firsttileview .menu-header' : 'firstPGlaunch',
+            'mousemove .firsttileview .menu-tile-items' : 'firstPGlaunch',
+            'mousemove .tiles-menu-inner .menu-header' : 'accessibilityOn',
+            'mousemove .tiles-menu-inner .menu-tile-items' : 'accessibilityOn'
+        },
 
         className: function() {
             return MenuView.prototype.className.apply(this) + " tilesmenu-menu";
         },
 
         postRender: function() {
-            var nthChild = 0;
-            this.model.getChildren().each(function(item) {
-                if (item.get('_isAvailable') && !item.get('_isHidden')) {
-                    item.set('_nthChild', ++nthChild);
-                    this.$('.menu-tile-items').append(new BoxMenuItemView({model: item}).$el);
-                }
-
-                if(item.get('_isHidden')) {
-                    item.set('_isReady', true);
-                }
-            });
+            this.setUpItems();
 
             /* COUNTS MENU ITEMS AND PLACES NUMBER */
+            var numofpgs = $(".menu-item").length;
             $(".menu-item").each(function(i) {
                 $(this).attr('name', 'nth-child-' + parseInt(i+1));
                 $(this).find(".menu-item-button").attr('data-content', ++i);
                 $('.menu-item-button[data-content="' + i + '"]').click(function(){
                     /* Below addes page number in for the menu */
-                    $('.navpagenum').text( 'Page ' + i + ' of ' + nthChild );
-                    $('.arianavpgnum').text( 'Page ' + i + ' of ' + nthChild ).attr('role','region').attr('tabindex','0').addClass('aria-label');
+                    console.log('Page ' + i + ' of ' + numofpgs)
+                    $('.navpagenum').text( 'Page ' + i + ' of ' + numofpgs );
+                    $('.arianavpgnum').text( 'Page ' + i + ' of ' + numofpgs ).attr('role','region').attr('tabindex','0').addClass('aria-label');
                 });
 
                 //Replace UL list tags to p tags
@@ -57,111 +57,81 @@ define([
             });
 
             // Checks if you are on Main Menu or Sub Menu
-            if ($('.navigation-back-button').hasClass('display-none')) {
+            if ($('.nav__back-btn').hasClass('u-display-none')) {
                 //Do Nothing on Main Menu
-                var navtitle2 = $( ".menu-title-inner" ).text();
-                $( ".modulehead" ).html( navtitle2 );
+                //BELOW PULLS TITLE
+                var navtitle2 = $( '.menu-title-inner' ).text();
+                Adapt.offlineStorage.set('mycourseTitle', navtitle2);
+                var courseholder = Adapt.offlineStorage.get("mycourseTitle");
             } else {
                 $('.tilesmenu-menu .menu-container-inner .menu-header .menu-header-inner .menu-title').addClass('submenu-title');
                 $('.tilesmenu-menu .menu-container-inner .menu-header .menu-header-inner .menu-body').addClass('submenu-body');
                 //BELOW PULLS TITLE
-                var navtitle2 = $( ".menu-title-inner" ).text();
-                $( ".modulehead" ).html( navtitle2 );
+                var navtitle2 = $( '.menu-title-inner' ).text();
+                Adapt.offlineStorage.set('mycourseTitle', navtitle2);
+                var courseholder = Adapt.offlineStorage.get("mycourseTitle");
             }
 
             // Triggers Page 1 when Accessibility button is pressed
+            var config = this.model.get("_tilesMenu");
+            var launchPGone = config && config._gotoPageone;
+
+            if (launchPGone == true) {
+                console.log("TILE MENU PAGE 1 LAUNCH IS OFF.");
+            } else if (launchPGone == false || $('.location-menu').hasClass('accessibility')) {
+                this.listenToOnce(Adapt, "menuView:postRender pageView:postRender", this.navigateTo); 
+            }
+
+        },
+
+        firstPGlaunch: function() {
+            // Checks if you are on Main Menu or Sub Menu
+            if ($('.nav__back-btn').hasClass('u-display-none')) {
+                $( '.firsttileview .menu-item[name="nth-child-1"] .origbutton .viewtext' ).trigger( 'click' );
+            } else {
+                //Do Nothing on SUB Menu
+                $('.tiles-menu-inner').removeClass('firsttileview');
+            }
+        },
+
+        navigateTo: function() {
+            if( $('.navpagenum:empty').length ) {
+                window.setTimeout(function(){
+                    console.log("1st view of TILE MENU.");
+                    $( '.firsttileview .menu-item[name="nth-child-1"] .origbutton .viewtext' ).trigger( 'click' );
+                }, 555);
+            } else {
+                $('.tiles-menu-inner').removeClass('firsttileview');
+                console.log("TILE MENU has been viewed before.");
+            } 
+        },
+
+        accessibilityOn: function(e) {
             if ($('.location-menu').hasClass('accessibility')) {
-                // Checks if you are on Main Menu or Sub Menu
-                if ($('.navigation-back-button').hasClass('display-none')) {
-                    window.setTimeout(function(){
-                        $( '.nth-child-1 .viewtext' ).trigger( 'click' );
-                    }, 250);
-                } else {
-                    window.setTimeout(function(){
-                        $( '.nth-child-1 .viewtext' ).trigger( 'click' );
-                        window.setTimeout(function(){
-                            $('head').prepend("<style>.accessibility .audio-controls .audio-inner button {display:none;}</style>");
-                            $( '.nth-child-1 .viewtext' ).trigger( 'click' );
-                        }, 250);
-                    }, 250);
-                }
+                console.log("TILE MENU Accessibility On");
+                $( '.tiles-menu-inner .menu-item[name="nth-child-1"] .origbutton .viewtext' ).trigger( 'click' );
+            } else {
+                //DO NOTHING
             }
+            
+        },
 
+        setUpItems: function() {
+            var items = this.model.getAvailableChildModels();
+            var $items = this.$(".menu-tile-items");
+
+            for (var i = 0, j = items.length; i < j; i++) {
+                var nthChild = { model: items[i] };
+
+                $items.append(new TileMenuItemView(nthChild).$el);
+            }
         }
 
-    }, {
-        template: 'tilesmenu'
-    });
-
-    var BoxMenuItemView = MenuView.extend({
-
-        events: {
-            'click .viewtext' : 'onClickMenuItemButton',
-            'click #tilemenupopup' : 'menunotifyPopup'
-        },
-
-        className: function() {
-            var nthChild = this.model.get('_nthChild');
-            return [
-                'menu-item',
-                'menu-item-' + this.model.get('_id') ,
-                this.model.get('_classes'),
-                this.model.get('_isVisited') ? 'visited' : '',
-                this.model.get('_isComplete') ? 'completed' : '',
-                this.model.get('_isLocked') ? 'locked' : '',
-                'nth-child-' + nthChild,
-                nthChild % 2 === 0 ? 'nth-child-even' : 'nth-child-odd'
-            ].join(' ');
-        },
-
-        preRender: function() {
-            this.model.checkCompletionStatus();
-            this.model.checkInteractionCompletionStatus();
-        },
-
-        postRender: function() {
-            var graphic = this.model.get('_graphic');
-            var nthChild = this.model.get("_nthChild");
-
-            if (graphic && graphic.src) {
-                this.$el.imageready(this.setReadyStatus.bind(this));
-                return;
-            }
-
-            this.setReadyStatus();
-        },
-
-        onClickMenuItemButton: function(event) {
-            if(event && event.preventDefault) event.preventDefault();
-            if(this.model.get('_isLocked')) return;
-
-            Backbone.history.navigate('#/id/' + this.model.get('_id'), {trigger: true});
-        },
-
-        menunotifyPopup: function (event) {
-            event.preventDefault();
-
-            this.model.set('_active', false);
-
-            var bodyText = this.model.get('body');
-            var titleText = this.model.get('displayTitle');
-
-            var popupObject = {
-                title: titleText,
-                body: bodyText
-            };
-
-            Adapt.trigger('notify:popup', popupObject);
-
-        }
-
-    }, {
-        template: 'tilesmenu-item'
-    });
+    }, { template: 'tilesmenu' });
 
     Adapt.on('router:menu', function(model) {
 
-        $('#wrapper').append(new BoxMenuView({model: model}).$el);
+        $('#wrapper').append(new TileMenuView({model: model}).$el);
 
     });
 
