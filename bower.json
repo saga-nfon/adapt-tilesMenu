@@ -1,8 +1,8 @@
 {
   "name": "adapt-tilesMenu",
-  "version": "5.0.1",
+  "version": "5.0.2",
   "framework": ">=5",
-  "homepage": "https://github.com/mike-st/adapt-tilesmenu",
+  "homepage": "https://github.com/saga-nfon/adapt-tilesmenu",
   "displayName": "Scrolling Tiles Menu",
   "menu": "tilesmenu",
   "description": "A menu with tiles that scroll vertically.",
